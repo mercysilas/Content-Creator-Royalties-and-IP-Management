@@ -10,6 +10,10 @@ A revolutionary platform built on Stacks blockchain that empowers content creato
 - 💸 **Transparent Payments**: All transactions are recorded on-chain
 - 📊 **Earnings Tracking**: Monitor your accumulated royalties
 - 🏪 **Built-in Marketplace**: List and trade your NFTs directly
+- 🏆 **Creator Reputation System**: Build trust through verified sales and community engagement
+- 📈 **Advanced Analytics**: Track performance metrics, sales trends, and creator insights
+- 💰 **Smart Discounts**: Earn marketplace fee reductions based on reputation scores
+- 🎖️ **Achievement System**: Unlock special badges and recognition for milestones
 
 ## 📋 Contract Functions
 
@@ -80,6 +84,69 @@ View royalty structure for any NFT.
 ```
 Get comprehensive NFT information including metadata, royalties, and current status.
 
+## 🏆 Reputation & Analytics Functions
+
+### 📊 Creator Analytics
+
+#### `get-creator-stats`
+```clarity
+(get-creator-stats creator)
+```
+Retrieve detailed creator performance metrics.
+
+**Returns:**
+- `total-sales`: Number of successful NFT sales
+- `total-revenue`: Cumulative revenue earned
+- `average-price`: Average sale price across all NFTs
+- `engagement-score`: Community engagement rating
+- `first-sale-block`: Block height of first sale
+- `last-activity-block`: Most recent activity
+- `discount-earned`: Whether creator qualifies for fee discounts
+
+#### `get-trust-score`
+```clarity
+(get-trust-score user)
+```
+Calculate combined creator and collector reputation score.
+
+#### `qualifies-for-discount`
+```clarity
+(qualifies-for-discount user)
+```
+Check if user qualifies for reduced marketplace fees (5% discount at 5000+ reputation).
+
+### 🎯 Community Engagement
+
+#### `record-engagement`
+```clarity
+(record-engagement creator score)
+```
+Record community engagement for a creator (costs 0.001 STX to prevent spam).
+
+**Parameters:**
+- `creator`: Creator to rate
+- `score`: Engagement score (0-1000)
+
+#### `grant-achievement`
+```clarity
+(grant-achievement creator achievement)
+```
+Grant special achievement badge to creator (contract owner only).
+
+### 📈 Platform Analytics
+
+#### `get-platform-analytics`
+```clarity
+(get-platform-analytics)
+```
+Retrieve platform-wide statistics including total volume and creator count.
+
+#### `get-creator-dashboard`
+```clarity
+(get-creator-dashboard creator)
+```
+Get comprehensive creator dashboard with stats, reputation, and achievements.
+
 ## 🛠️ Usage Examples
 
 ### Mint Your First NFT
@@ -116,13 +183,37 @@ Get comprehensive NFT information including metadata, royalties, and current sta
 (contract-call? .CCRoyalties buy-token u1)
 ```
 
+
+### Reputation & Analytics
+```clarity
+;; Check creator's reputation and stats
+(contract-call? .CCRoyalties get-creator-stats 'SP1...)
+(contract-call? .CCRoyalties get-trust-score 'SP1...)
+
+;; Record community engagement (costs 0.001 STX)
+(contract-call? .CCRoyalties record-engagement 'SP1... u750)
+
+;; Check if user qualifies for discounts
+(contract-call? .CCRoyalties qualifies-for-discount 'SP1...)
+
+;; View creator dashboard
+(contract-call? .CCRoyalties get-creator-dashboard 'SP1...)
+
+;; Grant achievement (contract owner only)
+(contract-call? .CCRoyalties grant-achievement 'SP1... u"Top Seller")
+```
+
 ## 💡 Key Benefits
 
 - 🎯 **Fair Compensation**: Ensures all contributors get paid automatically
 - 🔒 **Immutable Rights**: Royalty agreements can't be changed after minting
 - 🌐 **Global Reach**: Accessible to creators worldwide via Stacks blockchain
 - 💎 **True Ownership**: Creators maintain IP rights while monetizing their work
-- 📈 **Passive Income**: Earn royalties on every future sale
+- 💰 **Passive Income**: Earn royalties on every future sale
+- 🏆 **Trust Building**: Build reputation through consistent sales and community engagement
+- 📊 **Data-Driven Insights**: Make informed decisions with comprehensive analytics
+- 👥 **Community Validation**: Peer-to-peer engagement scoring system
+- 💰 **Performance Rewards**: Earn discounts and privileges based on reputation
 
 ## ⚙️ Technical Specifications
 
@@ -138,7 +229,8 @@ Get comprehensive NFT information including metadata, royalties, and current sta
 2. **Mint Content**: Use `mint-nft` to tokenize your creative work
 3. **Set Royalties**: Define fair compensation for all contributors  
 4. **List & Sell**: Use built-in marketplace functions
-5. **Earn Forever**: Collect royalties on all future sales! 🎉
+5. **Build Reputation**: Engage with community and earn trust scores
+6. **Earn Forever**: Collect royalties on all future sales and unlock discounts! 🎉
 
 ## 🔐 Security Features
 

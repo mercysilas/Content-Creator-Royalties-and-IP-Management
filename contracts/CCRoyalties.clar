@@ -13,12 +13,16 @@
 (define-constant err-invalid-score (err u109))
 (define-constant err-user-not-found (err u110))
 (define-constant err-invalid-achievement (err u111))
+(define-constant err-threshold-not-met (err u112))
+(define-constant err-no-released-funds (err u113))
 
 (define-constant reputation-multiplier u100)
 (define-constant engagement-cost u1000)
 (define-constant discount-threshold u5000)
 (define-constant max-achievement-length u32)
 (define-constant creator-discount u500)
+(define-constant default-threshold-amount u1000000)
+(define-constant max-threshold-amount u100000000)
 
 (define-data-var last-token-id uint u0)
 (define-data-var platform-fee-percentage uint u250)
@@ -70,6 +74,15 @@
 (define-map engagement-records
   {creator: principal, reporter: principal}
   uint)
+
+(define-map user-threshold-settings principal
+  {
+    threshold-amount: uint,
+    auto-release: bool
+  })
+
+(define-map user-pending-royalties principal uint)
+(define-map user-released-royalties principal uint)
 
 (define-read-only (get-last-token-id)
   (var-get last-token-id))
@@ -124,6 +137,31 @@
     platform-fee: (var-get platform-fee-percentage),
     discount-threshold: discount-threshold
   })
+
+(define-read-only (get-user-threshold-setting (user principal))
+  (default-to 
+    {threshold-amount: default-threshold-amount, auto-release: true}
+    (map-get? user-threshold-settings user)))
+
+(define-read-only (get-pending-royalties (user principal))
+  (default-to u0 (map-get? user-pending-royalties user)))
+
+(define-read-only (get-released-royalties (user principal))
+  (default-to u0 (map-get? user-released-royalties user)))
+
+(define-read-only (get-royalty-status (user principal))
+  (let ((settings (get-user-threshold-setting user))
+        (pending (get-pending-royalties user))
+        (released (get-released-royalties user))
+        (threshold-amount (get threshold-amount settings))
+        (threshold-met (>= pending threshold-amount)))
+    {
+      pending: pending,
+      released: released,
+      threshold-amount: threshold-amount,
+      auto-release: (get auto-release settings),
+      threshold-met: threshold-met
+    }))
 
 (define-public (mint-nft 
   (title (string-ascii 256))
@@ -227,6 +265,38 @@
     (map-delete user-earnings tx-sender)
     (stx-transfer? earnings (as-contract tx-sender) tx-sender)))
 
+(define-public (set-royalty-threshold (threshold-amount-input uint) (auto-release-input bool))
+  (let ((user tx-sender)
+        (validated-amount (if (< threshold-amount-input default-threshold-amount) 
+                             default-threshold-amount 
+                             (if (> threshold-amount-input max-threshold-amount)
+                               max-threshold-amount
+                               threshold-amount-input))))
+    (map-set user-threshold-settings user {
+      threshold-amount: validated-amount,
+      auto-release: auto-release-input
+    })
+    (ok true)))
+
+(define-public (release-accumulated-royalties)
+  (let ((user tx-sender)
+        (pending (get-pending-royalties user))
+        (settings (get-user-threshold-setting user))
+        (threshold (get threshold-amount settings))
+        (current-released (get-released-royalties user)))
+    (asserts! (>= pending threshold) err-threshold-not-met)
+    (map-set user-released-royalties user (+ current-released pending))
+    (map-set user-pending-royalties user u0)
+    (ok pending)))
+
+(define-public (claim-released-royalties)
+  (let ((user tx-sender)
+        (amount (get-released-royalties user)))
+    (asserts! (> amount u0) err-no-released-funds)
+    (try! (as-contract (stx-transfer? amount tx-sender user)))
+    (map-set user-released-royalties user u0)
+    (ok amount)))
+
 (define-private (update-creator-first-mint (creator principal))
   (if (is-none (map-get? creator-stats creator))
     (begin
@@ -283,9 +353,18 @@
     (try! (stx-transfer? platform-fee tx-sender contract-owner))
     (if (> creator-royalty u0)
       (begin
-        (map-set user-earnings creator 
-          (+ (get-user-earnings creator) creator-royalty))
-        (try! (stx-transfer? creator-royalty tx-sender creator)))
+        (let ((creator-settings (get-user-threshold-setting creator))
+              (current-pending (get-pending-royalties creator))
+              (new-pending (+ current-pending creator-royalty))
+              (threshold (get threshold-amount creator-settings))
+              (auto-release (get auto-release creator-settings)))
+          (if (and (>= new-pending threshold) auto-release)
+            (begin
+              (map-set user-released-royalties creator (+ (get-released-royalties creator) new-pending))
+              (map-set user-pending-royalties creator u0)
+              (map-set user-earnings creator 
+                (+ (get-user-earnings creator) new-pending)))
+            (map-set user-pending-royalties creator new-pending))))
       true)
     (unwrap-panic (distribute-collaborator-royalties collaborators sale-price))
     (ok true)))
